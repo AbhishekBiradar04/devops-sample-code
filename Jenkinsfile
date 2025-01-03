@@ -1,41 +1,58 @@
 pipeline {
     agent any
 
+    environment {
+        DEPLOY_DIR = "${WORKSPACE}/python-app-deploy"
+    }
+
     stages {
-        stage('Build') {
+        stage('Setup') {
             steps {
                 echo 'Creating virtual environment and installing dependencies...'
+                sh '''
+                python3 -m venv venv
+                source venv/bin/activate
+                pip install -r requirements.txt
+                '''
             }
         }
+
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'python3 -m unittest discover -s .'
+                sh '''
+                source venv/bin/activate
+                python3 -m unittest discover -s .
+                '''
             }
         }
+
         stage('Deploy') {
             steps {
                 echo 'Deploying application...'
                 sh '''
-                mkdir -p ${WORKSPACE}/python-app-deploy
-                cp ${WORKSPACE}/app.py ${WORKSPACE}/python-app-deploy/
+                mkdir -p ${DEPLOY_DIR}
+                cp app.py ${DEPLOY_DIR}/
                 '''
             }
         }
+
         stage('Run Application') {
             steps {
                 echo 'Running application...'
                 sh '''
-                nohup python3 ${WORKSPACE}/python-app-deploy/app.py > ${WORKSPACE}/python-app-deploy/app.log 2>&1 &
-                echo $! > ${WORKSPACE}/python-app-deploy/app.pid
+                nohup python3 ${DEPLOY_DIR}/app.py > ${DEPLOY_DIR}/app.log 2>&1 &
+                echo $! > ${DEPLOY_DIR}/app.pid
                 '''
             }
         }
+
         stage('Test Application') {
             steps {
                 echo 'Testing application...'
                 sh '''
-                python3 ${WORKSPACE}/test_app.py
+                source venv/bin/activate
+                python3 test_app.py
                 '''
             }
         }
